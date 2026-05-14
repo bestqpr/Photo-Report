@@ -461,59 +461,60 @@ async function buildPDF(){
     if(b.id==='exterior') return 1;
     return 0;
   });
+  // Fixed cell size: 2 cols x 2 rows per page per area (max 4 photos per area block)
+  const cellH=70; // fixed height per photo cell in mm
+  const gap=5;
+  const headerH=13;
+  const blockH=headerH+(cellH+gap)*2; // header + 2 rows
+
   for(const area of areasWithPhotos){
     const aPhotos=photos[area.id];
-    if(y+10>270){doc.addPage();y=15;}
-    doc.setFillColor(25,45,70); doc.rect(mg-2,y,W-mg*2+4,9,'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(255,255,255);
-    const areaDisplayName = area.id==='other'&&window.otherAreaName ? window.otherAreaName : area.name;
-    doc.text(areaDisplayName.toUpperCase(),mg+1,y+6.3);
-    y+=13;
+    const areaDisplayName=area.id==='other'&&window.otherAreaName?window.otherAreaName:area.name;
 
-    // Photos 2 per row, respecting each photo's aspect ratio
-    for(let i=0;i<aPhotos.length;i+=2){
-      // Calculate row height based on tallest photo in this pair
-      let rowH=colW*0.75; // default fallback
-      for(let col=0;col<2;col++){
-        const p=aPhotos[i+col];
-        if(!p) continue;
-        const img=new Image();
-        img.src=p.dataURL;
-        if(img.naturalWidth&&img.naturalHeight){
-          const ratio=img.naturalHeight/img.naturalWidth;
-          const h=colW*ratio;
-          if(h>rowH) rowH=h;
+    // Group photos into pages of 4
+    for(let page=0;page<aPhotos.length;page+=4){
+      const batch=aPhotos.slice(page,page+4);
+      const rows=Math.ceil(batch.length/2);
+      const neededH=headerH+(cellH+gap)*rows;
+
+      // Always start area+photos together — new page if not enough room
+      if(y+neededH>272){doc.addPage();y=15;}
+
+      // Area header
+      doc.setFillColor(25,45,70); doc.rect(mg-2,y,W-mg*2+4,9,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(255,255,255);
+      doc.text(areaDisplayName.toUpperCase(),mg+1,y+6.3);
+      y+=headerH;
+
+      // Photos in 2x2 grid
+      for(let i=0;i<batch.length;i+=2){
+        for(let col=0;col<2;col++){
+          const p=batch[i+col];
+          if(!p) continue;
+          const x=mg+col*(colW+8);
+          try{
+            const compressed=await compressImage(p.dataURL,900);
+            const fmt='JPEG';
+            // Fit photo inside cell respecting aspect ratio
+            const imgEl=new Image();
+            imgEl.src=p.dataURL;
+            let pw=colW, ph=cellH;
+            if(imgEl.naturalWidth&&imgEl.naturalHeight){
+              const ratio=imgEl.naturalHeight/imgEl.naturalWidth;
+              ph=colW*ratio;
+              pw=colW;
+              if(ph>cellH){ph=cellH;pw=cellH/ratio;}
+              if(pw>colW){pw=colW;ph=colW*ratio;}
+            }
+            const xOff=x+(colW-pw)/2;
+            const yOff=y+(cellH-ph)/2;
+            doc.addImage(compressed,fmt,xOff,yOff,pw,ph,undefined,'FAST');
+            doc.setDrawColor(200,210,220); doc.setLineWidth(0.2); doc.rect(xOff,yOff,pw,ph);
+          }catch(e){}
         }
+        y+=cellH+gap;
       }
-      // Cap height so portrait photos don't take a full page
-      const maxH=120;
-      if(rowH>maxH) rowH=maxH;
-      if(y+rowH>272){doc.addPage();y=15;}
-      for(let col=0;col<2;col++){
-        const p=aPhotos[i+col];
-        if(!p) continue;
-        const x=mg+col*(colW+8);
-        try{
-          const compressed=await compressImage(p.dataURL,800);
-          const fmt=getImgFmt(p.dataURL);
-          // Center vertically within row height respecting aspect ratio
-          const img2=new Image();
-          img2.src=p.dataURL;
-          let ph=rowH;
-          let pw=colW;
-          if(img2.naturalWidth&&img2.naturalHeight){
-            const ratio=img2.naturalHeight/img2.naturalWidth;
-            ph=Math.min(colW*ratio,rowH);
-            pw=ph/ratio;
-            if(pw>colW){pw=colW;ph=colW*ratio;}
-          }
-          const xOff=x+(colW-pw)/2;
-          const yOff=y+(rowH-ph)/2;
-          doc.addImage(compressed,fmt,xOff,yOff,pw,ph,undefined,'FAST');
-          doc.setDrawColor(200,210,220); doc.setLineWidth(0.2); doc.rect(xOff,yOff,pw,ph);
-        }catch(e){}
-      }
-      y+=rowH+5;
+      y+=4;
     }
     y+=6;
   }
