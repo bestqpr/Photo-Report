@@ -56,8 +56,8 @@
   .area-photos{display:none;padding:0 14px 14px;flex-direction:column;gap:10px}
   .area-photos.open{display:flex}
   .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-  .photo-thumb{aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--surface2);position:relative}
-  .photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .photo-thumb{border-radius:8px;overflow:hidden;background:var(--surface2);position:relative}
+  .photo-thumb img{width:100%;height:auto;display:block;max-height:200px;object-fit:contain}
   .photo-remove{position:absolute;top:4px;right:4px;width:20px;height:20px;background:rgba(0,0,0,.7);border:none;border-radius:50%;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .add-photo-btn{width:100%;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text2);font-family:var(--sans);font-size:14px;cursor:pointer;transition:all .15s}
   .add-photo-btn:hover{border-color:var(--accent);color:var(--accent)}
@@ -86,6 +86,12 @@
   .empty-state .sub{font-size:13px;color:var(--text3);margin-top:4px}
   .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
   @keyframes spin{to{transform:rotate(360deg)}}
+  .iframe-gate{position:fixed;inset:0;background:#0d1117;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:9999;padding:32px;text-align:center}
+  .iframe-gate-logo{width:56px;height:56px;background:var(--accent);border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:16px;font-weight:500;color:#fff;margin-bottom:4px}
+  .iframe-gate h2{font-size:20px;font-weight:600;color:var(--text)}
+  .iframe-gate p{font-size:14px;color:var(--text2);max-width:280px;line-height:1.6}
+  .iframe-open-btn{background:var(--accent);color:#fff;border:none;border-radius:14px;padding:16px 32px;font-family:var(--sans);font-size:16px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:background .15s}
+  .iframe-open-btn:hover{background:var(--accent2)}
   .report-types{display:flex;flex-direction:column;gap:10px;margin-top:14px}
   .report-type-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:18px 20px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px}
   .report-type-card:active{transform:scale(0.98)}
@@ -104,6 +110,14 @@
 </style>
 </head>
 <body>
+
+<div id="iframe-gate" style="display:none" class="iframe-gate">
+  <div class="iframe-gate-logo">BQP</div>
+  <h2>Open in your browser</h2>
+  <p>For the best experience and to generate PDF reports, please open this app in your browser.</p>
+  <a id="iframe-open-link" href="" target="_blank" class="iframe-open-btn">📱 Open App</a>
+</div>
+
 
 <div class="header">
   <div class="logo">BQP</div>
@@ -196,6 +210,14 @@ const AREAS = [
 let allClients=[], selectedClient=null, photos={}, selectedReportType=null;
 
 window.onload=()=>{
+  // Detect if running inside an iframe (e.g. Monday.com)
+  if(window.self !== window.top){
+    const gate=document.getElementById('iframe-gate');
+    const link=document.getElementById('iframe-open-link');
+    gate.style.display='flex';
+    link.href=window.location.href;
+    return; // Don't load the rest of the app inside iframe
+  }
   AREAS.forEach(a=>photos[a.id]=[]);
   loadClients().then(()=>{
     const params=new URLSearchParams(window.location.search);
@@ -380,6 +402,26 @@ function getClientLoss(){
   return m?m[1]:(selectedClient.loss||'');
 }
 
+// ── COMPRESS IMAGE ────────────────────────────────────────────────────────────
+function compressImage(dataURL, maxPx=800){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.width, h=img.height;
+      if(w>maxPx||h>maxPx){
+        if(w>h){h=Math.round(h*maxPx/w);w=maxPx;}
+        else{w=Math.round(w*maxPx/h);h=maxPx;}
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL('image/jpeg',0.7));
+    };
+    img.onerror=()=>resolve(dataURL);
+    img.src=dataURL;
+  });
+}
+
 // ── BUILD PDF ─────────────────────────────────────────────────────────────────
 async function buildPDF(){
   const{jsPDF}=window.jspdf;
@@ -419,11 +461,8 @@ async function buildPDF(){
     if(b.id==='exterior') return 1;
     return 0;
   });
-  const photoH=colW*0.75;
-
   for(const area of areasWithPhotos){
     const aPhotos=photos[area.id];
-    // Area header
     if(y+10>270){doc.addPage();y=15;}
     doc.setFillColor(25,45,70); doc.rect(mg-2,y,W-mg*2+4,9,'F');
     doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(255,255,255);
@@ -431,20 +470,50 @@ async function buildPDF(){
     doc.text(areaDisplayName.toUpperCase(),mg+1,y+6.3);
     y+=13;
 
-    // Photos 2 per row
+    // Photos 2 per row, respecting each photo's aspect ratio
     for(let i=0;i<aPhotos.length;i+=2){
-      if(y+photoH>272){doc.addPage();y=15;}
+      // Calculate row height based on tallest photo in this pair
+      let rowH=colW*0.75; // default fallback
+      for(let col=0;col<2;col++){
+        const p=aPhotos[i+col];
+        if(!p) continue;
+        const img=new Image();
+        img.src=p.dataURL;
+        if(img.naturalWidth&&img.naturalHeight){
+          const ratio=img.naturalHeight/img.naturalWidth;
+          const h=colW*ratio;
+          if(h>rowH) rowH=h;
+        }
+      }
+      // Cap height so portrait photos don't take a full page
+      const maxH=120;
+      if(rowH>maxH) rowH=maxH;
+      if(y+rowH>272){doc.addPage();y=15;}
       for(let col=0;col<2;col++){
         const p=aPhotos[i+col];
         if(!p) continue;
         const x=mg+col*(colW+8);
         try{
+          const compressed=await compressImage(p.dataURL,800);
           const fmt=getImgFmt(p.dataURL);
-          doc.addImage(p.dataURL,fmt,x,y,colW,photoH,undefined,'MEDIUM');
-          doc.setDrawColor(180,200,220); doc.setLineWidth(0.25); doc.rect(x,y,colW,photoH);
+          // Center vertically within row height respecting aspect ratio
+          const img2=new Image();
+          img2.src=p.dataURL;
+          let ph=rowH;
+          let pw=colW;
+          if(img2.naturalWidth&&img2.naturalHeight){
+            const ratio=img2.naturalHeight/img2.naturalWidth;
+            ph=Math.min(colW*ratio,rowH);
+            pw=ph/ratio;
+            if(pw>colW){pw=colW;ph=colW*ratio;}
+          }
+          const xOff=x+(colW-pw)/2;
+          const yOff=y+(rowH-ph)/2;
+          doc.addImage(compressed,fmt,xOff,yOff,pw,ph,undefined,'FAST');
+          doc.setDrawColor(200,210,220); doc.setLineWidth(0.2); doc.rect(xOff,yOff,pw,ph);
         }catch(e){}
       }
-      y+=photoH+5;
+      y+=rowH+5;
     }
     y+=6;
   }
