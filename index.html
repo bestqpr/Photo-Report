@@ -462,7 +462,7 @@ async function buildPDF(){
     return 0;
   });
   // Fixed cell size: 2 cols x 2 rows per page per area (max 4 photos per area block)
-  const cellH=70; // fixed height per photo cell in mm
+  const cellH=110; // fixed height per photo cell in mm
   const gap=5;
   const headerH=13;
   const blockH=headerH+(cellH+gap)*2; // header + 2 rows
@@ -475,10 +475,23 @@ async function buildPDF(){
     for(let page=0;page<aPhotos.length;page+=4){
       const batch=aPhotos.slice(page,page+4);
       const rows=Math.ceil(batch.length/2);
+
+      // Calculate available space on current page
+      const availableH=272-y;
       const neededH=headerH+(cellH+gap)*rows;
 
-      // Always start area+photos together — new page if not enough room
-      if(y+neededH>272){doc.addPage();y=15;}
+      // If it fits with default cellH, use it; otherwise shrink cellH to fill page
+      let useCellH=cellH;
+      if(neededH<=availableH){
+        // fits fine — use default
+        useCellH=cellH;
+      } else if(availableH>=headerH+(50+gap)*rows){
+        // shrink cellH to fit available space
+        useCellH=Math.floor((availableH-headerH-gap*rows)/rows);
+      } else {
+        // not enough room even shrunk — new page
+        doc.addPage(); y=15; useCellH=cellH;
+      }
 
       // Area header
       doc.setFillColor(25,45,70); doc.rect(mg-2,y,W-mg*2+4,9,'F');
@@ -493,7 +506,7 @@ async function buildPDF(){
           if(!p) continue;
           const x=mg+col*(colW+8);
           try{
-            const compressed=await compressImage(p.dataURL,900);
+            const compressed=await compressImage(p.dataURL,1400);
             const fmt='JPEG';
             // Fit photo inside cell respecting aspect ratio
             const imgEl=new Image();
@@ -503,16 +516,16 @@ async function buildPDF(){
               const ratio=imgEl.naturalHeight/imgEl.naturalWidth;
               ph=colW*ratio;
               pw=colW;
-              if(ph>cellH){ph=cellH;pw=cellH/ratio;}
+              if(ph>useCellH){ph=useCellH;pw=useCellH/ratio;}
               if(pw>colW){pw=colW;ph=colW*ratio;}
             }
             const xOff=x+(colW-pw)/2;
-            const yOff=y+(cellH-ph)/2;
+            const yOff=y+(useCellH-ph)/2;
             doc.addImage(compressed,fmt,xOff,yOff,pw,ph,undefined,'FAST');
             doc.setDrawColor(200,210,220); doc.setLineWidth(0.2); doc.rect(xOff,yOff,pw,ph);
           }catch(e){}
         }
-        y+=cellH+gap;
+        y+=useCellH+gap;
       }
       y+=4;
     }
