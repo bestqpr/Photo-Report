@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BQP — Photo Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#0d1117;--surface:#161b22;--surface2:#1e2530;--border:#2a3340;
+    --accent:#2ea8ff;--accent2:#1a7fd4;--success:#3dd68c;--danger:#f05c5c;
+    --text:#e6edf3;--text2:#8b949e;--text3:#4a5568;--radius:14px;
+    --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;max-width:430px;margin:0 auto;padding-bottom:48px}
+  .header{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:var(--bg);z-index:100}
+  .logo{width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:500;color:#fff;flex-shrink:0}
+  .header-title{font-size:16px;font-weight:600}
+  .header-sub{font-size:12px;color:var(--text2);margin-top:1px}
+  .back-btn{margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:6px 12px;font-size:13px;font-family:var(--sans);cursor:pointer;display:none}
+  .back-btn.visible{display:block}
+  .screen{display:none;padding:0 16px}
+  .screen.active{display:block}
+  .search-wrap{margin:14px 0 10px;position:relative}
+  .search-wrap input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px 12px 42px;font-family:var(--sans);font-size:15px;color:var(--text);outline:none;transition:border-color .15s}
+  .search-wrap input:focus{border-color:var(--accent)}
+  .search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:16px;pointer-events:none}
+  .section-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px;font-family:var(--mono)}
+  .client-list{display:flex;flex-direction:column;gap:8px}
+  .client-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:12px}
+  .client-card:active{transform:scale(0.98);background:var(--surface2)}
+  .client-avatar{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent) 0%,#1a4fd4 100%);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:#fff;flex-shrink:0}
+  .client-info{flex:1;min-width:0}
+  .client-name{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .client-meta{font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .client-banner{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin:14px 0 6px;display:flex;align-items:center;gap:12px}
+  .client-banner-avatar{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent) 0%,#1a4fd4 100%);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;color:#fff;flex-shrink:0}
+  .client-banner-name{font-size:16px;font-weight:600}
+  .client-banner-address{font-size:12px;color:var(--text2);margin-top:2px}
+  .progress-strip{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  .progress-bar-wrap{flex:1;height:4px;background:var(--border);border-radius:2px}
+  .progress-bar-fill{height:4px;background:var(--accent);border-radius:2px;transition:width .4s}
+  .progress-text{font-size:12px;color:var(--text2);font-family:var(--mono);white-space:nowrap}
+  .area-list{display:flex;flex-direction:column;gap:10px}
+  .area-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .area-header{padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer}
+  .area-header:active{background:var(--surface2)}
+  .area-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .area-icon.none{background:var(--surface2)}
+  .area-icon.has-photos{background:rgba(46,168,255,.12)}
+  .area-name{font-size:15px;font-weight:500;flex:1}
+  .area-count{font-size:12px;font-family:var(--mono);color:var(--text2);background:var(--surface2);border-radius:6px;padding:3px 8px;flex-shrink:0}
+  .area-count.active{background:rgba(46,168,255,.15);color:var(--accent)}
+  .area-photos{display:none;padding:0 14px 14px;flex-direction:column;gap:10px}
+  .area-photos.open{display:flex}
+  .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .photo-thumb{aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--surface2);position:relative}
+  .photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .photo-remove{position:absolute;top:4px;right:4px;width:20px;height:20px;background:rgba(0,0,0,.7);border:none;border-radius:50%;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .add-photo-btn{width:100%;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text2);font-family:var(--sans);font-size:14px;cursor:pointer;transition:all .15s}
+  .add-photo-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .add-photo-btn input[type=file]{display:none}
+  .submit-section{margin-top:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+  .submit-summary{font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5}
+  .submit-summary b{color:var(--text)}
+  .submit-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:16px;font-family:var(--sans);font-size:16px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+  .submit-btn:hover{background:var(--accent2)}
+  .submit-btn:disabled{background:var(--border);color:var(--text3);cursor:not-allowed}
+  .status-steps{margin-top:14px;display:none;flex-direction:column;gap:8px}
+  .status-steps.visible{display:flex}
+  .step-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text2)}
+  .step-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);font-family:var(--mono)}
+  .step-dot.done{background:rgba(61,214,140,.15);border-color:var(--success);color:var(--success)}
+  .step-dot.active{background:rgba(46,168,255,.15);border-color:var(--accent);color:var(--accent);animation:pulse 1.2s infinite}
+  .step-dot.error{background:rgba(240,92,92,.15);border-color:var(--danger);color:var(--danger)}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .toast.success{border-color:var(--success);color:var(--success)}
+  .toast.error{border-color:var(--danger);color:var(--danger)}
+  .toast.info{border-color:var(--accent);color:var(--accent)}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--text2)}
+  .empty-state .icon{font-size:36px;margin-bottom:12px}
+  .empty-state .label{font-size:15px;font-weight:500}
+  .empty-state .sub{font-size:13px;color:var(--text3);margin-top:4px}
+  .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .report-types{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+  .report-type-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:18px 20px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px}
+  .report-type-card:active{transform:scale(0.98)}
+  .report-type-card.selected{border-color:var(--accent);background:rgba(46,168,255,.07)}
+  .report-type-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+  .report-type-card:nth-child(1) .report-type-icon{background:rgba(61,214,140,.12)}
+  .report-type-card:nth-child(2) .report-type-icon{background:rgba(240,180,50,.12)}
+  .report-type-card:nth-child(3) .report-type-icon{background:rgba(240,92,92,.12)}
+  .report-type-card:nth-child(4) .report-type-icon{background:rgba(160,120,255,.12)}
+  .report-type-name{font-size:16px;font-weight:600}
+  .report-type-desc{font-size:12px;color:var(--text2);margin-top:3px}
+  .continue-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:15px;font-family:var(--sans);font-size:16px;font-weight:600;cursor:pointer;margin-top:16px;display:none;transition:background .15s}
+  .continue-btn.visible{display:block}
+  .continue-btn:hover{background:var(--accent2)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">BQP</div>
+  <div>
+    <div class="header-title" id="header-title">Photo Report</div>
+    <div class="header-sub" id="header-sub">Best Quality Pro Restoration</div>
+  </div>
+  <button class="back-btn" id="back-btn" onclick="goBack()">← Back</button>
+</div>
+
+<div class="screen active" id="screen-clients">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search-input" placeholder="Search client…" oninput="filterClients(this.value)"/>
+  </div>
+  <div class="section-label">Active clients</div>
+  <div class="client-list" id="client-list">
+    <div class="empty-state"><div class="icon">⏳</div><div class="label">Loading clients…</div></div>
+  </div>
+</div>
+
+
+<div class="screen" id="screen-type">
+  <div class="client-banner" id="type-client-banner" style="margin-top:14px"></div>
+  <div class="section-label" style="margin-top:14px">Select report type</div>
+  <div class="report-types">
+    <div class="report-type-card" onclick="selectReportType('first','First Day Report','🟢')">
+      <div class="report-type-icon">🟢</div>
+      <div><div class="report-type-name">First Day Report</div><div class="report-type-desc">Initial documentation of damage on arrival</div></div>
+    </div>
+    <div class="report-type-card" onclick="selectReportType('second','2nd Day Report','🟡')">
+      <div class="report-type-icon">🟡</div>
+      <div><div class="report-type-name">2nd Day Report</div><div class="report-type-desc">Progress check and mid-mitigation update</div></div>
+    </div>
+    <div class="report-type-card" onclick="selectReportType('last','Last Day Report','🔴')">
+      <div class="report-type-icon">🔴</div>
+      <div><div class="report-type-name">Last Day Report</div><div class="report-type-desc">Final documentation after mitigation complete</div></div>
+    </div>
+    <div class="report-type-card" onclick="selectReportType('inspection','Inspection Report','🔍')">
+      <div class="report-type-icon">🔍</div>
+      <div><div class="report-type-name">Inspection Report</div><div class="report-type-desc">Pre-work or third-party inspection</div></div>
+    </div>
+  </div>
+  <button class="continue-btn" id="continue-btn" onclick="goToAreas()">Continue →</button>
+</div>
+
+<div class="screen" id="screen-areas">
+  <div class="client-banner" id="client-banner"></div>
+  <div class="progress-strip">
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="progress-text" id="progress-text">0 photos</div>
+  </div>
+  <div class="area-list" id="area-list"></div>
+  <div class="submit-section">
+    <div class="submit-summary" id="submit-summary">Add photos to the work areas to enable submission.</div>
+    <button class="submit-btn" id="submit-btn" disabled onclick="submitReport()">
+      📄 Generate PDF &amp; Send to Monday
+    </button>
+    <div class="status-steps" id="status-steps">
+      <div class="step-row"><div class="step-dot" id="step1-dot">1</div><span id="step1-label">Building PDF report…</span></div>
+      <div class="step-row"><div class="step-dot" id="step2-dot">2</div><span id="step2-label">Uploading PDF to Monday…</span></div>
+      <div class="step-row"><div class="step-dot" id="step3-dot">3</div><span id="step3-label">Adding report note…</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PROXY   = 'https://bqp-proxy.throbbing-dream-27e5.workers.dev';
+const API_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjY1MjIzNTYyNywiYWFpIjoxMSwidWlkIjo5NzE2OTkxNiwiaWFkIjoiMjAyNi0wNC0zMFQxMTo0NzozNi4wMDBaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MzI4MzgwMjYsInJnbiI6InVzZTEifQ.Nar4n-sgF9Z9FtRR0o9e9RuNkuzX5r-QTF5XjUrFsAk';
+const BOARD_ID = '18391352531';
+
+const AREAS = [
+  {id:'guest_bathroom',  name:'Guest Bathroom',  emoji:'🚿'},
+  {id:'master_bathroom', name:'Master Bathroom',  emoji:'🛁'},
+  {id:'guest_bedroom',   name:'Guest Bedroom',    emoji:'🛏️'},
+  {id:'master_bedroom',  name:'Master Bedroom',   emoji:'🛏️'},
+  {id:'living_room',     name:'Living Room',      emoji:'🛋️'},
+  {id:'kitchen',         name:'Kitchen',          emoji:'🍳'},
+  {id:'closet',          name:'Closet',           emoji:'🚪'},
+  {id:'laundry_room',    name:'Laundry Room',     emoji:'🧺'},
+  {id:'pantry',          name:'Pantry',           emoji:'🥫'},
+  {id:'hallway',         name:'Hallway',          emoji:'🚶'},
+  {id:'garage',          name:'Garage',           emoji:'🚗'},
+  {id:'exterior',        name:'Exterior',         emoji:'🌿'},
+  {id:'other',           name:'Other',            emoji:'➕', custom:true},
+];
+
+let allClients=[], selectedClient=null, photos={}, selectedReportType=null;
+
+window.onload=()=>{ AREAS.forEach(a=>photos[a.id]=[]); loadClients(); };
+
+// ── CLIENTS ───────────────────────────────────────────────────────────────────
+async function loadClients(){
+  const list=document.getElementById('client-list');
+  const query=`{ boards(ids:[${BOARD_ID}]){ groups{ id title items_page(limit:500){ items{ id name column_values(ids:["long_text_mkygb4vx","text_mkyg2nmy","dropdown_mkygnyzs"]){ id text } } } } } }`;
+  try{
+    const res=await mondayAPI(query);
+    const groups=res.data?.boards?.[0]?.groups||[];
+    // Exclude archive/completed groups we don't need
+    const skipGroups=['group_mm35brkv']; // Leads
+    allClients=[];
+    groups.forEach(g=>{
+      if(skipGroups.includes(g.id)) return;
+      (g.items_page?.items||[]).forEach(item=>{
+        const cols={};
+        item.column_values.forEach(c=>cols[c.id]=c.text);
+        allClients.push({id:item.id,name:item.name,address:cols['long_text_mkygb4vx']||'',phone:cols['text_mkyg2nmy']||'',loss:cols['dropdown_mkygnyzs']||'',group:g.title});
+      });
+    });
+    // Sort alphabetically by name
+    allClients.sort((a,b)=>a.name.localeCompare(b.name));
+    renderClients(allClients);
+  }catch(e){
+    list.innerHTML=`<div class="empty-state"><div class="icon">⚠️</div><div class="label">Error loading</div><div class="sub">${e.message}</div></div>`;
+  }
+}
+
+function renderClients(clients){
+  const list=document.getElementById('client-list');
+  if(!clients.length){list.innerHTML=`<div class="empty-state"><div class="icon">👤</div><div class="label">No results</div></div>`;return;}
+  list.innerHTML=clients.map(c=>{
+    const ini=c.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    const meta=[c.loss,c.address].filter(Boolean).join(' · ');
+    return`<div class="client-card" onclick="selectClient('${c.id}')">
+      <div class="client-avatar">${ini}</div>
+      <div class="client-info">
+        <div class="client-name">${c.name}</div>
+        <div class="client-meta">${meta||'No details'}</div>
+        <div style="margin-top:4px"><span style="font-size:10px;font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--text3)">${c.group}</span></div>
+      </div>
+      <span style="color:var(--text3);font-size:20px">›</span></div>`;
+  }).join('');
+}
+
+function filterClients(q){
+  renderClients(allClients.filter(c=>c.name.toLowerCase().includes(q.toLowerCase())||c.address.toLowerCase().includes(q.toLowerCase())));
+}
+
+
+// ── REPORT TYPE ───────────────────────────────────────────────────────────────
+function selectReportType(id,name,emoji){
+  selectedReportType={id,name,emoji};
+  document.querySelectorAll('.report-type-card').forEach(c=>c.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  document.getElementById('continue-btn').classList.add('visible');
+}
+
+function goToAreas(){
+  if(!selectedReportType) return;
+  AREAS.forEach(a=>photos[a.id]=[]);
+  renderAreas();
+  showScreen('screen-areas');
+  document.getElementById('header-title').textContent=selectedReportType.name;
+  document.getElementById('header-sub').textContent=selectedClient.name;
+}
+
+// ── SELECT ────────────────────────────────────────────────────────────────────
+function selectClient(id){
+  selectedClient=allClients.find(c=>c.id===id);
+  AREAS.forEach(a=>photos[a.id]=[]);
+  const ini=selectedClient.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  document.getElementById('client-banner').innerHTML=`
+    <div class="client-banner-avatar">${ini}</div>
+    <div><div class="client-banner-name">${selectedClient.name}</div>
+    <div class="client-banner-address">${selectedClient.address||selectedClient.loss||'No address'}</div></div>`;
+  // Go to report type selector first
+  const ini2=selectedClient.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  document.getElementById('type-client-banner').innerHTML=`
+    <div class="client-banner-avatar">${ini2}</div>
+    <div><div class="client-banner-name">${selectedClient.name}</div>
+    <div class="client-banner-address">${selectedClient.address||selectedClient.loss||'No address'}</div></div>`;
+  selectedReportType=null;
+  document.querySelectorAll('.report-type-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('continue-btn').classList.remove('visible');
+  showScreen('screen-type');
+  document.getElementById('header-title').textContent='Report Type';
+  document.getElementById('header-sub').textContent=selectedClient.name;
+  document.getElementById('back-btn').classList.add('visible');
+}
+
+// ── AREAS ─────────────────────────────────────────────────────────────────────
+function renderAreas(){
+  document.getElementById('area-list').innerHTML=AREAS.map(a=>`
+    <div class="area-card">
+      <div class="area-header" onclick="toggleArea('${a.id}')">
+        <div class="area-icon none" id="area-icon-${a.id}">${a.emoji}</div>
+        <div class="area-name" id="area-name-label-${a.id}">${a.name}</div>
+        <div class="area-count" id="area-count-${a.id}">0 photos</div>
+      </div>
+      <div class="area-photos" id="area-photos-${a.id}">
+        ${a.custom ? `<input type="text" id="other-name-input" placeholder="Area name (e.g. Attic, Basement…)" oninput="updateOtherName(this.value)"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--sans);font-size:14px;color:var(--text);outline:none;margin-bottom:4px"/>` : ''}
+        <div class="photo-grid" id="photo-grid-${a.id}"></div>
+        <label class="add-photo-btn">📷 Take / add photos
+          <input type="file" accept="image/*" multiple capture="environment" onchange="addPhotos('${a.id}',this)"/>
+        </label>
+      </div>
+    </div>`).join('');
+  updateProgress();
+}
+
+function updateOtherName(val){
+  const label=document.getElementById('area-name-label-other');
+  if(label) label.textContent=val.trim()||'Other';
+  // store for PDF
+  window.otherAreaName=val.trim()||'Other';
+}
+
+function toggleArea(id){document.getElementById(`area-photos-${id}`).classList.toggle('open');}
+
+function addPhotos(areaId,input){
+  Array.from(input.files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{photos[areaId].push({file,dataURL:e.target.result});renderPhotoGrid(areaId);updateProgress();};
+    reader.readAsDataURL(file);
+  });
+  input.value='';
+}
+
+function removePhoto(areaId,idx){photos[areaId].splice(idx,1);renderPhotoGrid(areaId);updateProgress();}
+
+function renderPhotoGrid(areaId){
+  const arr=photos[areaId];
+  document.getElementById(`photo-grid-${areaId}`).innerHTML=arr.map((p,i)=>`
+    <div class="photo-thumb"><img src="${p.dataURL}"/>
+    <button class="photo-remove" onclick="removePhoto('${areaId}',${i})">✕</button></div>`).join('');
+  const cnt=document.getElementById(`area-count-${areaId}`);
+  const ico=document.getElementById(`area-icon-${areaId}`);
+  cnt.textContent=arr.length?`${arr.length} photo${arr.length>1?'s':''}`:'0 photos';
+  cnt.className=`area-count${arr.length?' active':''}`;
+  ico.className=`area-icon${arr.length?' has-photos':' none'}`;
+}
+
+function updateProgress(){
+  const total=AREAS.reduce((s,a)=>s+photos[a.id].length,0);
+  const used=AREAS.filter(a=>photos[a.id].length>0).length;
+  document.getElementById('progress-fill').style.width=Math.min(100,(used/AREAS.length)*100)+'%';
+  document.getElementById('progress-text').textContent=`${total} photo${total!==1?'s':''}`;
+  const btn=document.getElementById('submit-btn');
+  const sum=document.getElementById('submit-summary');
+  if(total>0){btn.disabled=false;sum.innerHTML=`<b>${total} photo${total!==1?'s':''}</b> in <b>${used} area${used!==1?'s':''}</b> — ready to generate the PDF report.`;}
+  else{btn.disabled=true;sum.textContent='Add photos to the work areas to enable submission.';}
+}
+
+// ── BUILD PDF ─────────────────────────────────────────────────────────────────
+async function buildPDF(){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
+  const W=215.9, mg=14, colW=(W-mg*2-8)/2;
+  const date=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  // Header
+  doc.setFillColor(20,130,255); doc.rect(0,0,W,22,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(255,255,255);
+  const reportTitle=selectedReportType?`BQP — ${selectedReportType.name}`:'BQP — Photo Report';
+  doc.text(reportTitle,mg,14);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('Best Quality Pro Restoration',W-mg,14,{align:'right'});
+
+  // Client bar
+  doc.setFillColor(237,244,255); doc.rect(0,22,W,20,'F');
+  doc.setFontSize(9.5); doc.setTextColor(40,40,40);
+  const fields=[
+    ['Client:', selectedClient.name, mg],
+    ['Date:', date, mg+95],
+  ];
+  const fields2=[
+    ['Address:', selectedClient.address||'—', mg],
+    ['Type of loss:', selectedClient.loss||'—', mg+95],
+  ];
+  fields.forEach(([lbl,val,x])=>{
+    doc.setFont('helvetica','bold'); doc.text(lbl,x,30);
+    doc.setFont('helvetica','normal'); doc.text(val,x+doc.getTextWidth(lbl)+2,30,{maxWidth:88});
+  });
+  fields2.forEach(([lbl,val,x])=>{
+    doc.setFont('helvetica','bold'); doc.text(lbl,x,38);
+    doc.setFont('helvetica','normal'); doc.text(val,x+doc.getTextWidth(lbl)+2,38,{maxWidth:88});
+  });
+
+  let y=48;
+  const areasWithPhotos=AREAS.filter(a=>photos[a.id].length>0);
+  const photoH=colW*0.75;
+
+  for(const area of areasWithPhotos){
+    const aPhotos=photos[area.id];
+    // Area header
+    if(y+10>270){doc.addPage();y=15;}
+    doc.setFillColor(25,45,70); doc.rect(mg-2,y,W-mg*2+4,9,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(255,255,255);
+    const areaDisplayName = area.id==='other'&&window.otherAreaName ? window.otherAreaName : area.name;
+    doc.text(`${areaDisplayName.toUpperCase()}   (${aPhotos.length} photo${aPhotos.length>1?'s':''})`,mg+1,y+6.3);
+    y+=13;
+
+    // Photos 2 per row
+    for(let i=0;i<aPhotos.length;i+=2){
+      if(y+photoH>272){doc.addPage();y=15;}
+      for(let col=0;col<2;col++){
+        const p=aPhotos[i+col];
+        if(!p) continue;
+        const x=mg+col*(colW+8);
+        try{
+          const fmt=getImgFmt(p.dataURL);
+          doc.addImage(p.dataURL,fmt,x,y,colW,photoH,undefined,'MEDIUM');
+          doc.setDrawColor(180,200,220); doc.setLineWidth(0.25); doc.rect(x,y,colW,photoH);
+        }catch(e){}
+      }
+      y+=photoH+5;
+    }
+    y+=6;
+  }
+
+  // Footer
+  const pageCount=doc.internal.getNumberOfPages();
+  for(let p=1;p<=pageCount;p++){
+    doc.setPage(p);
+    doc.setFontSize(7.5); doc.setTextColor(160,165,175); doc.setFont('helvetica','normal');
+    doc.text(`Page ${p} of ${pageCount}   |   Best Quality Pro Restoration   |   bestqualityprorestoration.com`,W/2,278,{align:'center'});
+  }
+
+  return doc.output('blob');
+}
+
+function getImgFmt(url){
+  if(url.includes('image/png')) return'PNG';
+  if(url.includes('image/webp')) return'WEBP';
+  return'JPEG';
+}
+
+// ── SUBMIT ────────────────────────────────────────────────────────────────────
+async function submitReport(){
+  const btn=document.getElementById('submit-btn');
+  const steps=document.getElementById('status-steps');
+  btn.disabled=true;
+  btn.innerHTML=`<span class="spinner"></span> Working…`;
+  steps.classList.add('visible');
+  setStep(1,'');setStep(2,'');setStep(3,'');
+
+  try{
+    setStep(1,'active','Building PDF report…');
+    const blob=await buildPDF();
+    setStep(1,'done','PDF built ✓');
+
+    setStep(2,'active','Uploading to Monday…');
+    const typeSlug=selectedReportType?selectedReportType.id:'report';
+    const fname=`BQP_${typeSlug}_${selectedClient.name.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.pdf`;
+    await uploadFile(selectedClient.id,blob,fname);
+    setStep(2,'done','PDF uploaded ✓');
+
+    setStep(3,'active','Adding report note…');
+    const total=AREAS.reduce((s,a)=>s+photos[a.id].length,0);
+    const summary=AREAS.filter(a=>photos[a.id].length>0).map(a=>`${a.emoji} ${a.id==='other'&&window.otherAreaName?window.otherAreaName:a.name}: ${photos[a.id].length} photo(s)`).join('\\n');
+    const rtype=selectedReportType?selectedReportType.emoji+' '+selectedReportType.name:'Photo Report';
+    await mondayAPI(`mutation{create_update(item_id:${selectedClient.id},body:"${rtype}\\n\\n${summary}\\n\\nTotal: ${total} photos — PDF attached"){id}}`);
+    setStep(3,'done','Done ✓');
+
+    btn.innerHTML='✅ Report sent!';
+    showToast('PDF report uploaded to Monday!','success');
+  }catch(e){
+    btn.disabled=false;
+    btn.innerHTML='📄 Generate PDF & Send to Monday';
+    showToast('Error: '+e.message,'error');
+    [1,2,3].forEach(n=>{if(document.getElementById(`step${n}-dot`).classList.contains('active'))setStep(n,'error');});
+  }
+}
+
+function setStep(n,state,label){
+  const dot=document.getElementById(`step${n}-dot`);
+  dot.className=`step-dot${state?' '+state:''}`;
+  dot.textContent=state==='done'?'✓':state==='error'?'✗':n;
+  if(label) document.getElementById(`step${n}-label`).textContent=label;
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function mondayAPI(query){
+  const res=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json','Authorization':API_KEY,'API-Version':'2024-01'},body:JSON.stringify({query})});
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data=await res.json();
+  if(data.errors) throw new Error(data.errors[0].message);
+  return data;
+}
+
+async function uploadFile(itemId,blob,filename){
+  const query=`mutation($file:File!){add_file_to_column(item_id:${itemId},column_id:"file_mkygt8j1",file:$file){id}}`;
+  const form=new FormData();
+  form.append('query',query);
+  form.append('variables[file]',blob,filename);
+  const res=await fetch(`${PROXY}/file`,{method:'POST',headers:{'Authorization':API_KEY,'API-Version':'2024-01'},body:form});
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data=await res.json();
+  if(data.errors) throw new Error(data.errors[0].message);
+  return data;
+}
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+
+function goBack(){
+  const current=document.querySelector('.screen.active').id;
+  if(current==='screen-areas'){
+    showScreen('screen-type');
+    document.getElementById('header-title').textContent='Report Type';
+    document.getElementById('header-sub').textContent=selectedClient.name;
+    document.getElementById('status-steps').classList.remove('visible');
+    const btn=document.getElementById('submit-btn');
+    btn.innerHTML='📄 Generate PDF & Send to Monday';
+    btn.disabled=true;
+  } else {
+    showScreen('screen-clients');
+    document.getElementById('header-title').textContent='Photo Report';
+    document.getElementById('header-sub').textContent='Best Quality Pro Restoration';
+    document.getElementById('back-btn').classList.remove('visible');
+    document.getElementById('status-steps').classList.remove('visible');
+    const btn=document.getElementById('submit-btn');
+    btn.innerHTML='📄 Generate PDF & Send to Monday';
+    btn.disabled=true;
+  }
+}
+
+let toastTimer;
+function showToast(msg,type='info'){
+  const t=document.getElementById('toast');
+  t.className=`toast ${type}`;
+  t.innerHTML=`${{success:'✅',error:'❌',info:'ℹ️'}[type]} ${msg}`;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),5000);
+}
+</script>
+</body>
+</html>
