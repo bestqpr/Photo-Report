@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BQP — Reporte de Fotos</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1e2530;
+    --border: #2a3340;
+    --accent: #2ea8ff;
+    --accent2: #1a7fd4;
+    --success: #3dd68c;
+    --warning: #f0a500;
+    --danger: #f05c5c;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #4a5568;
+    --radius: 14px;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    max-width: 430px;
+    margin: 0 auto;
+    padding-bottom: 40px;
+  }
+
+  /* HEADER */
+  .header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+  .header-logo {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 12px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .header-title { font-size: 16px; font-weight: 600; }
+  .header-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .back-btn {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-family: var(--sans);
+    cursor: pointer;
+    display: none;
+  }
+  .back-btn.visible { display: block; }
+
+  /* API CONFIG */
+  .config-bar {
+    margin: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .config-bar input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    outline: none;
+  }
+  .config-bar input:focus { border-color: var(--accent); }
+  .config-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+  }
+  .config-btn:hover { background: var(--accent2); }
+
+  /* SCREENS */
+  .screen { display: none; padding: 0 16px; }
+  .screen.active { display: block; }
+
+  /* SEARCH */
+  .search-wrap {
+    margin: 14px 0 10px;
+    position: relative;
+  }
+  .search-wrap input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px 12px 42px;
+    font-family: var(--sans);
+    font-size: 15px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-icon {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--text3); font-size: 16px; pointer-events: none;
+  }
+
+  /* CLIENT LIST */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 16px 0 8px;
+    font-family: var(--mono);
+  }
+  .client-list { display: flex; flex-direction: column; gap: 8px; }
+  .client-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .client-card:active { transform: scale(0.98); background: var(--surface2); }
+  .client-avatar {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent) 0%, #1a4fd4 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .client-info { flex: 1; min-width: 0; }
+  .client-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .client-meta { font-size: 12px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .client-arrow { color: var(--text3); font-size: 18px; flex-shrink: 0; }
+
+  /* AREA SCREEN */
+  .client-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin: 14px 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .client-banner-avatar {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent) 0%, #1a4fd4 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .client-banner-name { font-size: 16px; font-weight: 600; }
+  .client-banner-address { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  .progress-strip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .progress-bar-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; }
+  .progress-bar-fill { height: 4px; background: var(--accent); border-radius: 2px; transition: width .4s; }
+  .progress-text { font-size: 12px; color: var(--text2); font-family: var(--mono); white-space: nowrap; }
+
+  .area-list { display: flex; flex-direction: column; gap: 10px; }
+  .area-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: all .15s;
+  }
+  .area-header {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+  }
+  .area-header:active { background: var(--surface2); }
+  .area-icon {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .area-icon.none { background: var(--surface2); }
+  .area-icon.has-photos { background: rgba(46,168,255,.12); }
+  .area-name { font-size: 15px; font-weight: 500; flex: 1; }
+  .area-count {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text2);
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 3px 8px;
+    flex-shrink: 0;
+  }
+  .area-count.active { background: rgba(46,168,255,.15); color: var(--accent); }
+
+  .area-photos {
+    display: none;
+    padding: 0 14px 14px;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .area-photos.open { display: flex; }
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .photo-thumb {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--surface2);
+    position: relative;
+  }
+  .photo-thumb img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .photo-remove {
+    position: absolute; top: 4px; right: 4px;
+    width: 20px; height: 20px;
+    background: rgba(0,0,0,.7);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .add-photo-btn {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text2);
+    font-family: var(--sans);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .add-photo-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .add-photo-btn input[type=file] { display: none; }
+
+  /* SUBMIT */
+  .submit-section {
+    margin-top: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .submit-summary {
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+  .submit-summary b { color: var(--text); }
+  .submit-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 16px;
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .submit-btn:hover { background: var(--accent2); }
+  .submit-btn:disabled { background: var(--border); color: var(--text3); cursor: not-allowed; }
+  .submit-btn.loading { pointer-events: none; }
+
+  /* STATUS */
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    z-index: 999;
+    max-width: 360px;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--success); color: var(--success); }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
+  .toast.info { border-color: var(--accent); color: var(--accent); }
+
+  /* EMPTY / LOADING */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text2);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state .label { font-size: 15px; font-weight: 500; }
+  .empty-state .sub { font-size: 13px; color: var(--text3); margin-top: 4px; }
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .upload-progress {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text2);
+    font-family: var(--mono);
+  }
+  .upload-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .upload-row:last-child { border-bottom: none; }
+  .upload-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .upload-dot.pending { background: var(--text3); }
+  .upload-dot.uploading { background: var(--accent); animation: pulse 1s infinite; }
+  .upload-dot.done { background: var(--success); }
+  .upload-dot.error { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">BQP</div>
+  <div>
+    <div class="header-title" id="header-title">Reporte de fotos</div>
+    <div class="header-sub" id="header-sub">Best Quality Pro Restoration</div>
+  </div>
+  <button class="back-btn" id="back-btn" onclick="goBack()">← Volver</button>
+</div>
+
+<!-- SCREEN 1: CLIENT LIST -->
+<div class="screen active" id="screen-clients">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search-input" placeholder="Buscar cliente…" oninput="filterClients(this.value)"/>
+  </div>
+  <div class="section-label">Clientes activos</div>
+  <div class="client-list" id="client-list">
+    <div class="empty-state">
+      <div class="icon">🔑</div>
+      <div class="label">Conecta tu cuenta</div>
+      <div class="sub">Ingresa tu API Key arriba para cargar los clientes</div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 2: AREAS + PHOTOS -->
+<div class="screen" id="screen-areas">
+  <div class="client-banner" id="client-banner"></div>
+
+  <div class="progress-strip">
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="progress-text" id="progress-text">0 fotos</div>
+  </div>
+
+  <div class="area-list" id="area-list"></div>
+
+  <div class="submit-section">
+    <div class="submit-summary" id="submit-summary">Agrega fotos a las áreas del trabajo para habilitar el envío.</div>
+    <div class="upload-progress" id="upload-progress" style="display:none"></div>
+    <button class="submit-btn" id="submit-btn" disabled onclick="submitReport()">
+      Enviar reporte a Monday
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const BOARD_ID = '18391352531';
+const GROUP_ID = 'group_mkynv1z4';
+
+const AREAS = [
+  { id: 'living',    name: 'Living Room',        emoji: '🛋️' },
+  { id: 'kitchen',   name: 'Kitchen',            emoji: '🍳' },
+  { id: 'bathroom',  name: 'Bathroom',           emoji: '🚿' },
+  { id: 'bedroom',   name: 'Bedroom',            emoji: '🛏️' },
+  { id: 'ceiling',   name: 'Ceiling / Drywall',  emoji: '🏚️' },
+  { id: 'walls',     name: 'Walls',              emoji: '🧱' },
+  { id: 'basement',  name: 'Basement / Garage',  emoji: '🚗' },
+  { id: 'exterior',  name: 'Exterior',           emoji: '🌿' },
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let apiKey = 'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjY1MjIzNTYyNywiYWFpIjoxMSwidWlkIjo5NzE2OTkxNiwiaWFkIjoiMjAyNi0wNC0zMFQxMTo0NzozNi4wMDBaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MzI4MzgwMjYsInJnbiI6InVzZTEifQ.Nar4n-sgF9Z9FtRR0o9e9RuNkuzX5r-QTF5XjUrFsAk';
+let allClients = [];
+let selectedClient = null;
+// photos[areaId] = [{file, dataURL}, ...]
+let photos = {};
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.onload = () => {
+  loadClients();
+  AREAS.forEach(a => photos[a.id] = []);
+};
+
+// ─── LOAD CLIENTS ─────────────────────────────────────────────────────────────
+async function loadClients() {
+  const list = document.getElementById('client-list');
+  list.innerHTML = `<div class="empty-state"><div class="spinner" style="border-top-color:var(--accent);margin:0 auto 12px"></div><div class="label">Cargando clientes…</div></div>`;
+
+  const query = `{ boards(ids: [${BOARD_ID}]) { groups(ids: ["${GROUP_ID}"]) { items_page(limit: 100) { items { id name column_values { id text } } } } } }`;
+  try {
+    const res = await mondayAPI(query);
+    const items = res.data?.boards?.[0]?.groups?.[0]?.items_page?.items || [];
+    allClients = items.map(item => {
+      const cols = {};
+      item.column_values.forEach(c => cols[c.id] = c.text);
+      return {
+        id: item.id,
+        name: item.name,
+        address: cols['long_text_mkygb4vx'] || '',
+        phone: cols['text_mkyg2nmy'] || '',
+        loss: cols['dropdown_mkygnyzs'] || '',
+      };
+    });
+    renderClients(allClients);
+  } catch(e) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><div class="label">Error al cargar</div><div class="sub">${e.message}</div></div>`;
+  }
+}
+
+function renderClients(clients) {
+  const list = document.getElementById('client-list');
+  if (!clients.length) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">👤</div><div class="label">Sin resultados</div><div class="sub">Intenta otra búsqueda</div></div>`;
+    return;
+  }
+  list.innerHTML = clients.map(c => {
+    const initials = c.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    const meta = [c.loss, c.address].filter(Boolean).join(' · ');
+    return `<div class="client-card" onclick="selectClient('${c.id}')">
+      <div class="client-avatar">${initials}</div>
+      <div class="client-info">
+        <div class="client-name">${c.name}</div>
+        <div class="client-meta">${meta || 'Sin detalles'}</div>
+      </div>
+      <div class="client-arrow">›</div>
+    </div>`;
+  }).join('');
+}
+
+function filterClients(q) {
+  const filtered = allClients.filter(c =>
+    c.name.toLowerCase().includes(q.toLowerCase()) ||
+    c.address.toLowerCase().includes(q.toLowerCase())
+  );
+  renderClients(filtered);
+}
+
+// ─── SELECT CLIENT ────────────────────────────────────────────────────────────
+function selectClient(id) {
+  selectedClient = allClients.find(c => c.id === id);
+  AREAS.forEach(a => photos[a.id] = []);
+
+  // banner
+  const initials = selectedClient.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  document.getElementById('client-banner').innerHTML = `
+    <div class="client-banner-avatar">${initials}</div>
+    <div>
+      <div class="client-banner-name">${selectedClient.name}</div>
+      <div class="client-banner-address">${selectedClient.address || selectedClient.loss || 'Sin dirección'}</div>
+    </div>`;
+
+  renderAreas();
+  showScreen('screen-areas');
+  document.getElementById('header-title').textContent = 'Agregar fotos';
+  document.getElementById('header-sub').textContent = selectedClient.name;
+  document.getElementById('back-btn').classList.add('visible');
+}
+
+// ─── AREAS ────────────────────────────────────────────────────────────────────
+function renderAreas() {
+  const list = document.getElementById('area-list');
+  list.innerHTML = AREAS.map(a => `
+    <div class="area-card" id="area-card-${a.id}">
+      <div class="area-header" onclick="toggleArea('${a.id}')">
+        <div class="area-icon none" id="area-icon-${a.id}">${a.emoji}</div>
+        <div class="area-name">${a.name}</div>
+        <div class="area-count" id="area-count-${a.id}">0 fotos</div>
+      </div>
+      <div class="area-photos" id="area-photos-${a.id}">
+        <div class="photo-grid" id="photo-grid-${a.id}"></div>
+        <label class="add-photo-btn">
+          📷 Tomar / agregar fotos
+          <input type="file" accept="image/*" multiple capture="environment" onchange="addPhotos('${a.id}', this)"/>
+        </label>
+      </div>
+    </div>`).join('');
+  updateProgress();
+}
+
+function toggleArea(areaId) {
+  const panel = document.getElementById(`area-photos-${areaId}`);
+  panel.classList.toggle('open');
+}
+
+function addPhotos(areaId, input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      photos[areaId].push({ file, dataURL: e.target.result });
+      renderPhotoGrid(areaId);
+      updateProgress();
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function removePhoto(areaId, idx) {
+  photos[areaId].splice(idx, 1);
+  renderPhotoGrid(areaId);
+  updateProgress();
+}
+
+function renderPhotoGrid(areaId) {
+  const grid = document.getElementById(`photo-grid-${areaId}`);
+  const count = document.getElementById(`area-count-${areaId}`);
+  const icon = document.getElementById(`area-icon-${areaId}`);
+  const arr = photos[areaId];
+
+  count.textContent = arr.length ? `${arr.length} foto${arr.length>1?'s':''}` : '0 fotos';
+  count.className = `area-count${arr.length ? ' active' : ''}`;
+  icon.className = `area-icon${arr.length ? ' has-photos' : ' none'}`;
+
+  grid.innerHTML = arr.map((p,i) => `
+    <div class="photo-thumb">
+      <img src="${p.dataURL}" alt="foto"/>
+      <button class="photo-remove" onclick="removePhoto('${areaId}',${i})">✕</button>
+    </div>`).join('');
+}
+
+function updateProgress() {
+  const total = AREAS.reduce((s,a) => s + photos[a.id].length, 0);
+  const areasWithPhotos = AREAS.filter(a => photos[a.id].length > 0).length;
+  const pct = Math.min(100, (areasWithPhotos / AREAS.length) * 100);
+
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = `${total} foto${total!==1?'s':''}`;
+
+  const btn = document.getElementById('submit-btn');
+  const summary = document.getElementById('submit-summary');
+  if (total > 0) {
+    btn.disabled = false;
+    summary.innerHTML = `<b>${total} foto${total!==1?'s':''}</b> en <b>${areasWithPhotos} área${areasWithPhotos!==1?'s':''}</b> listas para subir a Monday.com.`;
+  } else {
+    btn.disabled = true;
+    summary.textContent = 'Agrega fotos a las áreas del trabajo para habilitar el envío.';
+  }
+}
+
+// ─── SUBMIT ───────────────────────────────────────────────────────────────────
+async function submitReport() {
+  const btn = document.getElementById('submit-btn');
+  const progressEl = document.getElementById('upload-progress');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Subiendo…`;
+  progressEl.style.display = 'block';
+
+  const toUpload = [];
+  AREAS.forEach(a => {
+    photos[a.id].forEach((p, i) => {
+      toUpload.push({ areaId: a.id, areaName: a.name, file: p.file, idx: i });
+    });
+  });
+
+  // Render upload progress rows
+  progressEl.innerHTML = toUpload.map((u,i) =>
+    `<div class="upload-row" id="uprow-${i}">
+      <span><div class="upload-dot pending" id="updot-${i}"></div></span>
+      <span style="flex:1;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.areaName} — foto ${u.idx+1}</span>
+      <span id="upstatus-${i}" style="color:var(--text3)">pendiente</span>
+    </div>`).join('');
+
+  let success = 0, failed = 0;
+  for (let i = 0; i < toUpload.length; i++) {
+    const u = toUpload[i];
+    const dot = document.getElementById(`updot-${i}`);
+    const status = document.getElementById(`upstatus-${i}`);
+    dot.className = 'upload-dot uploading';
+    status.textContent = 'subiendo…';
+    status.style.color = 'var(--accent)';
+
+    try {
+      const fname = `${u.areaName.replace(/\s/g,'_')}_foto${u.idx+1}_${Date.now()}.jpg`;
+      await uploadFileToMonday(selectedClient.id, u.file, fname);
+      dot.className = 'upload-dot done';
+      status.textContent = '✓';
+      status.style.color = 'var(--success)';
+      success++;
+    } catch(e) {
+      dot.className = 'upload-dot error';
+      status.textContent = 'error';
+      status.style.color = 'var(--danger)';
+      failed++;
+    }
+  }
+
+  // Add update comment to the item
+  const areasSummary = AREAS.filter(a=>photos[a.id].length>0)
+    .map(a=>`${a.emoji} ${a.name}: ${photos[a.id].length} foto(s)`).join('\n');
+  try {
+    await mondayAPI(`mutation { create_update(item_id: ${selectedClient.id}, body: "📋 Reporte de mitigación completado\\n\\n${areasSummary.replace(/\n/g,'\\n')}\\n\\n✅ ${success} foto(s) subidas") { id } }`);
+  } catch(e) {}
+
+  btn.innerHTML = success > 0 ? `✓ ${success} foto${success!==1?'s':''} enviadas` : '✗ Error al enviar';
+  if (failed === 0) {
+    showToast(`¡Reporte enviado! ${success} fotos subidas a Monday`, 'success');
+  } else {
+    showToast(`${success} enviadas, ${failed} fallaron`, failed === toUpload.length ? 'error' : 'info');
+    btn.disabled = false;
+    btn.innerHTML = 'Reintentar fallidas';
+  }
+}
+
+// ─── MONDAY API ───────────────────────────────────────────────────────────────
+async function mondayAPI(query) {
+  const res = await fetch('https://api.monday.com/v2', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': apiKey,
+      'API-Version': '2024-01'
+    },
+    body: JSON.stringify({ query })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.errors) throw new Error(data.errors[0].message);
+  return data;
+}
+
+async function uploadFileToMonday(itemId, file, filename) {
+  const query = `mutation ($file: File!) { add_file_to_column(item_id: ${itemId}, column_id: "files", file: $file) { id } }`;
+  const formData = new FormData();
+  formData.append('query', query);
+  formData.append('variables[file]', file, filename);
+
+  const res = await fetch('https://api.monday.com/v2/file', {
+    method: 'POST',
+    headers: { 'Authorization': apiKey, 'API-Version': '2024-01' },
+    body: formData
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.errors) throw new Error(data.errors[0].message);
+  return data;
+}
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goBack() {
+  showScreen('screen-clients');
+  document.getElementById('header-title').textContent = 'Reporte de fotos';
+  document.getElementById('header-sub').textContent = 'Best Quality Pro Restoration';
+  document.getElementById('back-btn').classList.remove('visible');
+  document.getElementById('upload-progress').style.display = 'none';
+  document.getElementById('upload-progress').innerHTML = '';
+  const btn = document.getElementById('submit-btn');
+  btn.innerHTML = 'Enviar reporte a Monday';
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type='info') {
+  const t = document.getElementById('toast');
+  const icons = { success:'✅', error:'❌', info:'ℹ️' };
+  t.className = `toast ${type}`;
+  t.innerHTML = `${icons[type]} ${msg}`;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+</script>
+</body>
+</html>
