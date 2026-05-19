@@ -237,24 +237,33 @@ window.onload=()=>{
 // ── CLIENTS ───────────────────────────────────────────────────────────────────
 async function loadClients(){
   const list=document.getElementById('client-list');
-  const query=`{ boards(ids:[${BOARD_ID}]){ groups{ id title items_page(limit:500){ items{ id name column_values(ids:["long_text_mkygb4vx","text_mkyg2nmy","dropdown_mkygnyzs"]){ id text } } } } } }`;
+  list.innerHTML=`<div class="empty-state"><div class="icon" style="font-size:28px">⏳</div><div class="label">Loading clients…</div></div>`;
   try{
-    const res=await mondayAPI(query);
-    const groups=res.data?.boards?.[0]?.groups||[];
-    // Exclude archive/completed groups we don't need
-    const skipGroups=['group_mm35brkv']; // Leads
     allClients=[];
-    groups.forEach(g=>{
-      if(skipGroups.includes(g.id)) return;
-      (g.items_page?.items||[]).forEach(item=>{
-        const cols={};
-        item.column_values.forEach(c=>cols[c.id]=c.text);
-        allClients.push({id:item.id,name:item.name,address:cols['long_text_mkygb4vx']||'',phone:cols['text_mkyg2nmy']||'',loss:cols['dropdown_mkygnyzs']||'',group:g.title});
-      });
-    });
-    // Sort alphabetically by name
+    // First get groups
+    const gRes=await mondayAPI(`{ boards(ids:[${BOARD_ID}]){ groups{ id title } } }`);
+    const groups=gRes.data?.boards?.[0]?.groups||[];
+    const skipGroups=['group_mm35brkv'];
+
+    // Fetch items per group (lower complexity)
+    for(const g of groups){
+      if(skipGroups.includes(g.id)) continue;
+      let cursor=null;
+      do{
+        const cursorArg=cursor?`, cursor:"${cursor}"`:'';
+        const q=`{ boards(ids:[${BOARD_ID}]){ groups(ids:["${g.id}"]){ items_page(limit:50${cursorArg}){ cursor items{ id name column_values(ids:["long_text_mkygb4vx","dropdown_mkygnyzs"]){ id text } } } } } }`;
+        const res=await mondayAPI(q);
+        const page=res.data?.boards?.[0]?.groups?.[0]?.items_page;
+        (page?.items||[]).forEach(item=>{
+          const cols={};
+          item.column_values.forEach(c=>cols[c.id]=c.text);
+          allClients.push({id:item.id,name:item.name,address:cols['long_text_mkygb4vx']||'',loss:cols['dropdown_mkygnyzs']||'',group:g.title});
+        });
+        cursor=page?.cursor||null;
+      }while(cursor);
+    }
+
     allClients.sort((a,b)=>a.name.localeCompare(b.name));
-    // Update link column for each client with their direct URL
     updateClientLinks(allClients);
     renderClients(allClients);
   }catch(e){
