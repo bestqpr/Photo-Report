@@ -63,6 +63,9 @@
   .add-photo-btn:hover{border-color:var(--accent);color:var(--accent)}
   .add-photo-btn input[type=file]{display:none}
   .submit-section{margin-top:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+  .tech-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:var(--sans);font-size:15px;color:var(--text);outline:none;margin-bottom:12px;transition:border-color .15s}
+  .tech-input:focus{border-color:var(--accent)}
+  .tech-label{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-family:var(--mono);margin-bottom:6px;display:block}
   .submit-summary{font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5}
   .submit-summary b{color:var(--text)}
   .submit-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:16px;font-family:var(--sans);font-size:16px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px}
@@ -172,6 +175,8 @@
   </div>
   <div class="area-list" id="area-list"></div>
   <div class="submit-section">
+    <label class="tech-label">Technician name</label>
+    <input class="tech-input" id="tech-name" type="text" placeholder="Enter your name…" autocomplete="name"/>
     <div class="submit-summary" id="submit-summary">Add photos to the work areas to enable submission.</div>
     <button class="submit-btn" id="submit-btn" disabled onclick="submitReport()">
       📄 Generate PDF &amp; Send to Monday
@@ -558,6 +563,9 @@ async function submitReport(){
   steps.classList.add('visible');
   setStep(1,'');setStep(2,'');setStep(3,'');
 
+  const techName=document.getElementById('tech-name').value.trim();
+  if(!techName){showToast('Please enter your name first','error');btn.disabled=false;btn.innerHTML='📄 Generate PDF & Send to Monday';steps.classList.remove('visible');return;}
+
   try{
     setStep(1,'active','Building PDF report…');
     const blob=await buildPDF();
@@ -573,7 +581,7 @@ async function submitReport(){
     const total=AREAS.reduce((s,a)=>s+photos[a.id].length,0);
     const summary=AREAS.filter(a=>photos[a.id].length>0).map(a=>`${a.emoji} ${a.id==='other'&&window.otherAreaName?window.otherAreaName:a.name}: ${photos[a.id].length} photo(s)`).join('\\n');
     const rtype=selectedReportType?selectedReportType.emoji+' '+selectedReportType.name:'Photo Report';
-    await mondayAPI(`mutation{create_update(item_id:${selectedClient.id},body:"${rtype}\\n\\n${summary}\\n\\nTotal: ${total} photos — PDF attached"){id}}`);
+    await mondayAPI(`mutation{create_update(item_id:${selectedClient.id},body:"${rtype}\\nTechnician: ${techName}\\n\\n${summary}\\n\\nTotal: ${total} photos — PDF attached"){id}}`);
     setStep(3,'done','Done ✓');
 
     btn.innerHTML='✅ Report sent!';
