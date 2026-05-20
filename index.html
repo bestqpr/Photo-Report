@@ -56,8 +56,10 @@
   .area-photos{display:none;padding:0 14px 14px;flex-direction:column;gap:10px}
   .area-photos.open{display:flex}
   .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-  .photo-thumb{border-radius:8px;overflow:hidden;background:var(--surface2);position:relative}
-  .photo-thumb img{width:100%;height:auto;display:block;max-height:200px;object-fit:contain}
+  .photo-thumb{border-radius:8px;overflow:hidden;background:var(--surface2);position:relative;cursor:grab;touch-action:none;transition:opacity .2s,transform .2s}
+  .photo-thumb img{width:100%;height:auto;display:block;max-height:200px;object-fit:contain;pointer-events:none}
+  .photo-thumb.dragging{opacity:.4;transform:scale(0.95);cursor:grabbing}
+  .photo-thumb.drag-over{outline:2px dashed var(--accent);outline-offset:2px}
   .photo-remove{position:absolute;top:4px;right:4px;width:20px;height:20px;background:rgba(0,0,0,.7);border:none;border-radius:50%;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
   .add-photo-btn{width:100%;background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--text2);font-family:var(--sans);font-size:14px;cursor:pointer;transition:all .15s}
   .add-photo-btn:hover{border-color:var(--accent);color:var(--accent)}
@@ -162,6 +164,10 @@
     <div class="report-type-card" onclick="selectReportType('inspection','Inspection Report','🔍')">
       <div class="report-type-icon">🔍</div>
       <div><div class="report-type-name">Inspection Report</div><div class="report-type-desc">Pre-work or third-party inspection</div></div>
+    </div>
+    <div class="report-type-card" onclick="selectReportType('tarp','Tarp Photos','🏗️')">
+      <div class="report-type-icon">🏗️</div>
+      <div><div class="report-type-name">Tarp Photos</div><div class="report-type-desc">Tarp installation documentation</div></div>
     </div>
   </div>
   <button class="continue-btn" id="continue-btn" onclick="goToAreas()">Continue →</button>
@@ -386,9 +392,20 @@ function removePhoto(areaId,idx){photos[areaId].splice(idx,1);renderPhotoGrid(ar
 
 function renderPhotoGrid(areaId){
   const arr=photos[areaId];
-  document.getElementById(`photo-grid-${areaId}`).innerHTML=arr.map((p,i)=>`
-    <div class="photo-thumb"><img src="${p.dataURL}"/>
-    <button class="photo-remove" onclick="removePhoto('${areaId}',${i})">✕</button></div>`).join('');
+  const grid=document.getElementById(`photo-grid-${areaId}`);
+  grid.innerHTML=arr.map((p,i)=>`
+    <div class="photo-thumb" draggable="true"
+      data-area="${areaId}" data-idx="${i}"
+      ondragstart="dragStart(event)"
+      ondragover="dragOver(event)"
+      ondragleave="dragLeave(event)"
+      ondrop="dragDrop(event)"
+      ondragend="dragEnd(event)">
+      <img src="${p.dataURL}"/>
+      <button class="photo-remove" onclick="removePhoto('${areaId}',${i})">✕</button>
+    </div>`).join('');
+  // Touch drag support
+  addTouchDrag(grid, areaId);
   const cnt=document.getElementById(`area-count-${areaId}`);
   const ico=document.getElementById(`area-icon-${areaId}`);
   cnt.textContent=arr.length?`${arr.length} photo${arr.length>1?'s':''}`:'0 photos';
@@ -561,6 +578,76 @@ function getImgFmt(url){
   if(url.includes('image/png')) return'PNG';
   if(url.includes('image/webp')) return'WEBP';
   return'JPEG';
+}
+
+
+// ── DRAG TO REORDER ───────────────────────────────────────────────────────────
+let dragSrcArea=null, dragSrcIdx=null;
+
+function dragStart(e){
+  dragSrcArea=e.currentTarget.dataset.area;
+  dragSrcIdx=parseInt(e.currentTarget.dataset.idx);
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+}
+function dragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  e.currentTarget.classList.add('drag-over');
+}
+function dragLeave(e){ e.currentTarget.classList.remove('drag-over'); }
+function dragEnd(e){ e.currentTarget.classList.remove('dragging'); }
+function dragDrop(e){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const destArea=e.currentTarget.dataset.area;
+  const destIdx=parseInt(e.currentTarget.dataset.idx);
+  if(dragSrcArea!==destArea||dragSrcIdx===destIdx) return;
+  // Reorder within same area
+  const arr=photos[dragSrcArea];
+  const [moved]=arr.splice(dragSrcIdx,1);
+  arr.splice(destIdx,0,moved);
+  renderPhotoGrid(dragSrcArea);
+}
+
+// Touch drag (mobile)
+function addTouchDrag(grid, areaId){
+  let touchSrcIdx=null, touchEl=null, clone=null;
+  grid.querySelectorAll('.photo-thumb').forEach((el,idx)=>{
+    el.addEventListener('touchstart',e=>{
+      touchSrcIdx=idx; touchEl=el;
+      el.classList.add('dragging');
+      // Create floating clone
+      clone=el.cloneNode(true);
+      clone.style.cssText=`position:fixed;width:${el.offsetWidth}px;opacity:.8;pointer-events:none;z-index:9999;border-radius:8px;overflow:hidden;`;
+      document.body.appendChild(clone);
+    },{passive:true});
+    el.addEventListener('touchmove',e=>{
+      if(!clone) return;
+      const t=e.touches[0];
+      clone.style.left=(t.clientX-el.offsetWidth/2)+'px';
+      clone.style.top=(t.clientY-el.offsetHeight/2)+'px';
+    },{passive:true});
+    el.addEventListener('touchend',e=>{
+      if(clone){clone.remove();clone=null;}
+      if(!touchEl) return;
+      touchEl.classList.remove('dragging');
+      // Find element under touch point
+      const t=e.changedTouches[0];
+      const els=document.elementsFromPoint(t.clientX,t.clientY);
+      const dest=els.find(x=>x.classList.contains('photo-thumb')&&x!==touchEl);
+      if(dest){
+        const destIdx=parseInt(dest.dataset.idx);
+        if(destIdx!==touchSrcIdx){
+          const arr=photos[areaId];
+          const [moved]=arr.splice(touchSrcIdx,1);
+          arr.splice(destIdx,0,moved);
+          renderPhotoGrid(areaId);
+        }
+      }
+      touchSrcIdx=null; touchEl=null;
+    },{passive:true});
+  });
 }
 
 // ── SUBMIT ────────────────────────────────────────────────────────────────────
